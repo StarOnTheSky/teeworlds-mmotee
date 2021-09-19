@@ -229,6 +229,7 @@ enum
 	CABBAGE,
 	GOLDTICKET,
 	TITLEMOON,
+	FESTITEM,
 	MAX_ITEM,
 	// 1 - Weapon Upgradins, 2 - Rare Artifacts, 3 - Quest Item's, 4 - Useds Items, 5 - Crafted Item
 	// Sufix S - SettingsItem
