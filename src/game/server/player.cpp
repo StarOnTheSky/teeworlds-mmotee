@@ -1185,6 +1185,15 @@ const char* CPlayer::TitleGot()
 	if(Server()->GetItemSettings(m_ClientID, X2MONEYEXPVIP))
 	{
 		int i = Server()->GetItemCount(m_ClientID, X2MONEYEXPVIP);
+		switch(i)
+		{
+			case 1: return "_VIP Bronze";
+			case 2: return "_VIP Sliver";
+			case 3: return "_VIP Gold";
+			case 4: return "_VIP Gold";
+			default: return "_Platinum";
+		}
+			
 		if(i == 1)
 			return "_VIP Bronze";
 		else if(i == 2)
@@ -1208,6 +1217,8 @@ const char* CPlayer::TitleGot()
 		return "_I<3Summer";
 	else if(Server()->GetItemSettings(m_ClientID, TITLEENCHANT))
 		return "Enchant+10";
+	else if(Server()->GetItemSettings(m_ClientID, TITLEMOON))
+		return "~〇~ Moon ~〇~";	
 	else 
 		return "_Newbie_";
 }   
