@@ -3,7 +3,7 @@
 
 #include <base/math.h>
 #include <base/vmath.h>
-#include <new>
+#include <cmath>
 #include <engine/shared/config.h>
 #include <engine/server/mapconverter.h>
 #include <game/server/gamecontext.h>
@@ -1918,9 +1918,10 @@ bool CCharacter::TakeDamage(vec2 Force, int Dmg, int From, int Weapon, int Mode)
 		//TODO
 		if(Server()->GetItemCount(From, FREEAZER))
 		{
-			auto probability = (float)(200-Server()->GetItemCount(From, FREEAZER)*5);
-			if (probability <= 5.0f) probability = 5.0f;
-			if(random_prob(1.0f/probability))
+            // Probability: a1 = 0.01, q = 19/20(0.95) sum(inf) = 0.2(1/5)
+            float probability;
+			probability = (float)(5.0f - 5.0f * pow(0.95, Server()->GetItemCount(From, FREEAZER)));
+			if(random_prob(probability))
 			{
 				if(m_pPlayer->GetBotType() == BOT_BOSSSLIME) Freeze(2);
 				else Freeze(1);

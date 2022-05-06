@@ -904,7 +904,6 @@ static std::unordered_map<std::string, std::function<void()>> VoteMsgParser = {
 					m_apPlayers[ClientID]->m_LastChangeInfo = Server()->Tick();
 					Server()->RemMail_OnlineBonus(ClientID);
 					ResetVotes(ClientID, MAILMENU); }},
-
 {"reward0", [this, ClientID](){
     Server()->RemMail(ClientID, 0);
     ResetVotes(ClientID, MAILMENU);
@@ -6782,5 +6781,4 @@ static std::unordered_map<std::string, std::function<void()>> VoteMsgParser = {
     ResetVotes(ClientID, CSETTING);
     return;
     }}
-
 };

@@ -4157,7 +4157,7 @@ public:
 					dbg_msg("user", "玩家ID %d 的数据初始化出现问题", m_pServer->m_aClients[m_ClientID].m_UserID);	
 					return false;
 				}
-				dbg_msg("user", "玩家ID %d 的数据初始化成功", m_pServer->m_aClients[m_ClientID].m_UserID);	
+				dbg_msg("user", "玩家ID %d 的数据初始化成功", m_pServer->m_aClients[m_ClientID].m_UserID);
 			}
 			else
 			{

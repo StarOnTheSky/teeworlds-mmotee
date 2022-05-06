@@ -1169,7 +1169,6 @@ void CGameContext::OnClientDrop(int ClientID, int Type, const char *pReason)
 		if(m_apPlayers[i] && m_apPlayers[i]->m_SpectatorID == ClientID)
 			m_apPlayers[i]->m_SpectatorID = SPEC_FREEVIEW;
 	}
-
 }
 
 void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
@@ -1234,7 +1233,7 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 			if(pEnd != 0)
 				*(const_cast<char *>(pEnd)) = 0;
 
-			// drop empty and autocreated spam messages (more than 16 characters per second)
+			// drop empty and auto created spam messages (more than 16 characters per second)
 			if(Length == 0 || (g_Config.m_SvSpamprotection && pPlayer->m_LastChat && pPlayer->m_LastChat+Server()->TickSpeed()*((15+Length)/16) > Server()->Tick()))
 				return;
 
@@ -1288,8 +1287,6 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 				char aDesc[VOTE_DESC_LENGTH] = {0};
 				char aCmd[VOTE_CMD_LENGTH] = {0};
 
-				
-				//TODO
 				if(str_comp_nocase(pMsg->m_Type, "option") == 0)
 				{
 					for (int i = 0; i < m_PlayerVotes[ClientID].size(); ++i)
@@ -1820,7 +1817,7 @@ void CGameContext::CreateItem(int ClientID, int ItemID, int Count)
 				return;
 			}
 			Server()->RemItem(ClientID, ESUMMER, 20, -1);
-			if(random_prob(0.04f) && m_apPlayers[ClientID]->AccData.SummerHealingTimes < 15)
+			if(random_prob(0.96f) && m_apPlayers[ClientID]->AccData.SummerHealingTimes < 15)
 			{
 				SendChatTarget_Localization(-1, CHATCATEGORY_DEFAULT, _("{str:name} 在合成 {str:item}x{int:coun} 的时候失败了"), 
 						"name", Server()->ClientName(ClientID), "item", Server()->GetItemName(ClientID, ItemID, false), "coun", &Count ,NULL);				
@@ -1845,7 +1842,6 @@ void CGameContext::CreateItem(int ClientID, int ItemID, int Count)
 			Server()->RemItem(ClientID, POTATO, 60 * Count, -1);
 			Server()->RemItem(ClientID, CARROT, 60 * Count, -1);
 		} break;
-
 		case COOPERPIX: 
 		{
 			if(Server()->GetItemCount(ClientID, WOOD) < 30 * Count || Server()->GetItemCount(ClientID, COOPERORE) < 60 * Count)
@@ -3173,13 +3169,8 @@ void CGameContext::StartArea(int WaitTime, int Type, int ClientID)
 	m_AreaType = Type;
 
 	const char* NameGame = "NONE";
-	//int Gets = 0;
 	switch(m_AreaType)
 	{
-		/*
-		case 1: NameGame = "激光瞬杀"; Gets = 50; break;
-		case 2: NameGame = "激光献祭"; Gets = 5; break;
-		*/
 		case 1: NameGame = "激光瞬杀"; break;
 		case 2: NameGame = "激光献祭"; break;
 	}
