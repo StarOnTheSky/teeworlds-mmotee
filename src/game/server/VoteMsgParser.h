@@ -116,7 +116,6 @@ static std::unordered_map<std::string, std::function<void()>> VoteMsgParser = {
                  {
                      if (Server()->GetClanID(i) == Server()->GetClanID(ClientID))
                      {
-
                          found = true;
                          SendChatTarget_Localization(i, CHATCATEGORY_DEFAULT, _("公会新的会长:{str:name}"), "name", m_apPlayers[ClientID]->m_SelectPlayer, NULL);
                      }
@@ -148,7 +147,6 @@ static std::unordered_map<std::string, std::function<void()>> VoteMsgParser = {
                  {
                      if (Server()->GetClanID(i) == Server()->GetClanID(ClientID))
                      {
-
                          found = true;
                          SendChatTarget_Localization(i, CHATCATEGORY_DEFAULT, _("公会新的管理员:{str:name}"), "name", m_apPlayers[ClientID]->m_SelectPlayer, NULL);
                      }
@@ -180,7 +178,6 @@ static std::unordered_map<std::string, std::function<void()>> VoteMsgParser = {
                  {
                      if (Server()->GetClanID(i) == Server()->GetClanID(ClientID))
                      {
-
                          found = true;
                          SendChatTarget_Localization(i, CHATCATEGORY_DEFAULT, _("公会原管理员 {str:name} 被罢免了!"), "name", m_apPlayers[ClientID]->m_SelectPlayer, NULL);
                      }
