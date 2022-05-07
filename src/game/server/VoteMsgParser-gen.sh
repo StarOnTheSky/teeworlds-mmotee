@@ -2,28 +2,28 @@
 ### Generator for std::unordered_map<std::string, std::function<void()>> VoteMsgParser
 ## Opreations
 # reward 0~19 -> Mail Menu
-for i in `seq 0 19`
+for i in $(seq 0 19)
 do echo "{\"reward${i}\", [this, ClientID](){
     Server()->RemMail(ClientID, ${i});
     ResetVotes(ClientID, MAILMENU);
     }},"
 done
 # menu 1~22 -> Go to target menu
-for i in `seq 1 22`
+for i in $(seq 1 22)
 do echo "{\"menu${i}\", [this, ClientID](){
     ResetVotes(ClientID, ${i});
     return;
     }},"
 done
 # its 1~6 -> Inventory Menu
-for i in `seq 1 6`
+for i in $(seq 1 6)
 do echo "{\"its${i}\", [this, ClientID]() {
     m_apPlayers[ClientID]->m_SelectItemType = ${i};
     ResetVotes(ClientID, INVENTORY);
     }},"
 done
 # scr 1~6 -> Craft Menu
-for i in `seq 1 6`
+for i in $(seq 1 6)
 do echo "{\"scr${i}\", [this, ClientID]() {
     m_apPlayers[ClientID]->m_SortedSelectCraft = ${i};
 	ResetVotes(ClientID, CRAFTING);
@@ -31,7 +31,7 @@ do echo "{\"scr${i}\", [this, ClientID]() {
     }},"
 done
 # armor 1~3 -> Select Armor
-for i in `seq 1 3`
+for i in $(seq 1 3)
 do echo "{\"armor${i}\", [this, ClientID]() {
     m_apPlayers[ClientID]->m_SelectArmor = ${i};
 	ResetVotes(ClientID, ARMORMENU);
@@ -39,7 +39,7 @@ do echo "{\"armor${i}\", [this, ClientID]() {
     }},"
 done
 # sort 1~8 -> Go to target sort
-for i in `seq 1 8`
+for i in $(seq 1 8)
 do echo "{\"sort${i}\", [this, ClientID]() {
     m_apPlayers[ClientID]->m_SortedSelectTop = ${i};
 	ResetVotes(ClientID, TOPMENU);
@@ -52,7 +52,7 @@ done
 # seli -> Sell Items
 # it -> Select Items
 # cra -> Create Items
-for i in `seq 0 131`
+for i in $(seq 0 131)
 do echo "{\"set${i}\", [this, ClientID]() {
     Server()->SetItemSettings(ClientID, ${i}, Server()->GetItemType(ClientID, ${i}));	
     ResetVotes(ClientID, m_apPlayers[ClientID]->m_UpdateMenu);	
@@ -95,7 +95,7 @@ echo "{\"cra${i}\", [this, ClientID, pReason]() {
     }},"
 done
 ## cs 0~63 -> Select Player
-for i in `seq 0 63`
+for i in $(seq 0 63)
 do echo "{\"cs${i}\", [this, ClientID]() {
     str_copy(m_apPlayers[ClientID]->m_SelectPlayer, Server()->GetSelectName(ClientID, ${i}), sizeof(m_apPlayers[ClientID]->m_SelectPlayer));
     ResetVotes(ClientID, CSETTING);
