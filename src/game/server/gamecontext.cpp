@@ -2,9 +2,10 @@
 /* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
 #include <new>
-#include <unordered_map>
 #include <string>
-#include <iomanip>
+#include <unordered_map>
+#include <functional>
+
 #include <base/math.h>
 #include <engine/shared/config.h>
 #include <engine/map.h>
@@ -373,36 +374,29 @@ void CGameContext::AddVoteMenu_Localization(int To, int MenuID, int Type, const 
 		{
 			Buffer.clear();
 			Server()->Localization()->Format_VL(Buffer, m_apPlayers[i]->GetLanguage(), pText, VarArgs);
-
-			if(Type == MENUONLY)
-			{
-				char Buf[8];
-				str_format(Buf, sizeof(Buf), "menu%d", MenuID);
-				AddVote(Buffer.buffer(), Buf, i);
-			}
-			else if(Type == SETTINGSONLY)
-			{
-				char Buf[8];
-				str_format(Buf, sizeof(Buf), "set%d", MenuID);
-				AddVote(Buffer.buffer(), Buf, i);					
-			}
-			else if(Type == BUYITEMONLY)
-			{
-				char Buf[8];
-				str_format(Buf, sizeof(Buf), "bon%d", MenuID);
-				AddVote(Buffer.buffer(), Buf, i);				
-			}
-			else if(Type == SELLITEMWORK)
-			{
-				char Buf[8];
-				str_format(Buf, sizeof(Buf), "seli%d", MenuID);
-				AddVote(Buffer.buffer(), Buf, i);				
-			}
-			else if(Type == CRAFTONLY)
-			{
-				char Buf[8];
-				str_format(Buf, sizeof(Buf), "cra%d", MenuID);
-				AddVote(Buffer.buffer(), Buf, i);				
+			char Buf[8];
+			switch (Type) {		
+				case MENUONLY:
+					str_format(Buf, sizeof(Buf), "menu%d", MenuID);
+					AddVote(Buffer.buffer(), Buf, i);
+					break;
+				case SETTINGSONLY:
+					str_format(Buf, sizeof(Buf), "set%d", MenuID);
+					AddVote(Buffer.buffer(), Buf, i);
+					break;
+				case BUYITEMONLY:
+					str_format(Buf, sizeof(Buf), "bon%d", MenuID);
+					AddVote(Buffer.buffer(), Buf, i);
+					break;
+				case SELLITEMWORK:
+					str_format(Buf, sizeof(Buf), "seli%d", MenuID);
+					AddVote(Buffer.buffer(), Buf, i);
+					break;
+				case CRAFTONLY:
+					str_format(Buf, sizeof(Buf), "cra%d", MenuID);
+					AddVote(Buffer.buffer(), Buf, i);	
+					break;
+				default: dbg_msg("sys", "Error value %d in %s:%d", Type, __FILE__, __LINE__); break;
 			}
 		}
 	}
@@ -485,7 +479,6 @@ void CGameContext::SendGuide(int ClientID, int BossType)
 		return;
 	
 	int arghealth = 0;
-	//const char* argtext = "null";
 	const char* pLanguage = m_apPlayers[ClientID]->GetLanguage();
 	
 	dynamic_string Buffer;		
@@ -1191,260 +1184,256 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 	{
 		switch (MsgID)
 		{
-		case NETMSGTYPE_CL_SAY:
-		{
-			if(g_Config.m_SvSpamprotection && pPlayer->m_LastChat && pPlayer->m_LastChat+Server()->TickSpeed() > Server()->Tick())
-				return;
-
-
-			CNetMsg_Cl_Say *pMsg = (CNetMsg_Cl_Say *)pRawMsg;
-			int Team = CGameContext::CHAT_ALL;
-			if(pMsg->m_Team)
+			case NETMSGTYPE_CL_SAY:
 			{
-				if(pPlayer->GetTeam() == TEAM_SPECTATORS) Team = CGameContext::CHAT_SPEC;
-				else Team = CGameContext::CHAT_BLUE;
-			}
-			
-			// trim right and set maximum length to 271 utf8-characters
-			int Length = 0;
-			const char *p = pMsg->m_pMessage;
-			const char *pEnd = 0;
-			while(*p)
- 			{
-				const char *pStrOld = p;
-				int Code = str_utf8_decode(&p);
-
-				// check if unicode is not empty
-				if(Code > 0x20 && Code != 0xA0 && Code != 0x034F && (Code < 0x2000 || Code > 0x200F) && (Code < 0x2028 || Code > 0x202F) &&
-					(Code < 0x205F || Code > 0x2064) && (Code < 0x206A || Code > 0x206F) && (Code < 0xFE00 || Code > 0xFE0F) &&
-					Code != 0xFEFF && (Code < 0xFFF9 || Code > 0xFFFC))
-				{
-					pEnd = 0;
-				}
-				else if(pEnd == 0)
-					pEnd = pStrOld;
-
-				if(++Length >= 270)
-				{
-					*(const_cast<char *>(p)) = 0;
-					break;
-				}
- 			}
-			if(pEnd != 0)
-				*(const_cast<char *>(pEnd)) = 0;
-
-			// drop empty and auto created spam messages (more than 16 characters per second)
-			if(Length == 0 || (g_Config.m_SvSpamprotection && pPlayer->m_LastChat && pPlayer->m_LastChat+Server()->TickSpeed()*((15+Length)/16) > Server()->Tick()))
-				return;
-
-			pPlayer->m_LastChat = Server()->Tick();
-		
-		
-			if(str_comp_num(pMsg->m_pMessage, "/msg ", 5) == 0)
-			{
-				PrivateMessage(pMsg->m_pMessage+5, ClientID, (Team != CGameContext::CHAT_ALL));
-			}
-			else if(str_comp_num(pMsg->m_pMessage, "/w ", 3) == 0)
-			{
-				PrivateMessage(pMsg->m_pMessage+3, ClientID, (Team != CGameContext::CHAT_ALL));
-			}
-			else if(pMsg->m_pMessage[0]=='/')
-				pPlayer->m_pChatCmd->ChatCmd(pMsg);
-			else
-				SendChat(ClientID, Team, pMsg->m_pMessage);	
-			
-			break;
-		}
-		case NETMSGTYPE_CL_CALLVOTE:
-		{
-			CNetMsg_Cl_CallVote const *pMsg = (CNetMsg_Cl_CallVote *)pRawMsg;
-			const char *pReason = pMsg->m_Reason[0] ? pMsg->m_Reason : "No reason given";
-
-			if(str_comp_nocase(pMsg->m_Type, "kick") == 0)
-			{
-				int KickID = str_toint(pMsg->m_Value);
-				if(KickID < 0 || KickID >= MAX_NOBOT || !m_apPlayers[KickID])
-				{
-					SendChatTarget(ClientID, "Invalid client id to kick");
+				if(g_Config.m_SvSpamprotection && pPlayer->m_LastChat && pPlayer->m_LastChat+Server()->TickSpeed() > Server()->Tick())
 					return;
-				}
-				if(KickID == ClientID)
+				auto *pMsg = (CNetMsg_Cl_Say *)pRawMsg;
+				int Team = CGameContext::CHAT_ALL;
+				if(pMsg->m_Team)
 				{
-					SendChatTarget(ClientID, "你不能把你自己踢出房间");
-					return;
+					if(pPlayer->GetTeam() == TEAM_SPECTATORS) Team = CGameContext::CHAT_SPEC;
+					else Team = CGameContext::CHAT_BLUE;
 				}
-				if(Server()->IsAuthed(KickID))
-				{
-					SendChatTarget(ClientID, "你不能把管理员踢出房间");
-					char aBufKick[128];
-					str_format(aBufKick, sizeof(aBufKick), "'%s' 投票把你踢出房间", Server()->ClientName(ClientID));
-					SendChatTarget(KickID, aBufKick);
-					return;
-				}
-			}
-			else
-			{
-				char aDesc[VOTE_DESC_LENGTH] = {0};
-				char aCmd[VOTE_CMD_LENGTH] = {0};
-
-				if(str_comp_nocase(pMsg->m_Type, "option") == 0)
-				{
-					for (int i = 0; i < m_PlayerVotes[ClientID].size(); ++i)
-					{
-						if(str_comp_nocase(pMsg->m_Value, m_PlayerVotes[ClientID][i].m_aDescription) == 0)
-						{
-							str_format(aDesc, sizeof(aDesc), "%s", m_PlayerVotes[ClientID][i].m_aDescription);
-							str_format(aCmd, sizeof(aCmd), "%s", m_PlayerVotes[ClientID][i].m_aCommand);
 				
-							//m_PlayerVotes[ClientID][i].data;
-						}
-					}
-				}
-				#include "VoteMsgParser.h"
-				VoteMsgParser[aCmd]();
-			}
-			break;
-		}
-		case NETMSGTYPE_CL_VOTE:
-		{
-			CNetMsg_Cl_Vote *pMsg = (CNetMsg_Cl_Vote *)pRawMsg;		
-			if(m_InviteTick[ClientID] > 0)
-			{
-				if(!pMsg->m_Vote)
-					return;
-
-				if(pMsg->m_Vote)
+				// trim right and set maximum length to 271 utf8-characters
+				int Length = 0;
+				const char *p = pMsg->m_pMessage;
+				const char *pEnd = 0;
+				while(*p)
 				{
-					if(pMsg->m_Vote > 0)
-					{
-						if(m_apPlayers[ClientID])
-						{	
-							EnterClan(ClientID, m_apPlayers[ClientID]->m_InviteClanID);
-							ResetVotes(ClientID, AUTH);
-							SendBroadcast_Localization(ClientID, BROADCAST_PRIORITY_INTERFACE, 150, _("欢迎来到公会"), NULL);
-						}
-					}
-					else
-					{
-						if(m_apPlayers[ClientID])
-							SendBroadcast_Localization(ClientID, BROADCAST_PRIORITY_INTERFACE, 10, _(" "), NULL);
-					}
-					m_InviteTick[ClientID] = 0;
+					const char *pStrOld = p;
+					int Code = str_utf8_decode(&p);
 
-					CNetMsg_Sv_VoteSet Msg;
-					Msg.m_Timeout = 0;
-					Msg.m_pDescription = "";
-					Msg.m_pReason = "";
-					Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, ClientID);
+					// check if unicode is not empty
+					if(Code > 0x20 && Code != 0xA0 && Code != 0x034F && (Code < 0x2000 || Code > 0x200F) && (Code < 0x2028 || Code > 0x202F) &&
+						(Code < 0x205F || Code > 0x2064) && (Code < 0x206A || Code > 0x206F) && (Code < 0xFE00 || Code > 0xFE0F) &&
+						Code != 0xFEFF && (Code < 0xFFF9 || Code > 0xFFFC))
+					{
+						pEnd = 0;
+					}
+					else if(pEnd == 0)
+						pEnd = pStrOld;
+
+					if(++Length >= 270)
+					{
+						*(const_cast<char *>(p)) = 0;
+						break;
+					}
 				}
-			}
-			else if(m_apPlayers[ClientID]->GetCharacter())
-			{
-				m_apPlayers[ClientID]->GetCharacter()->PressF3orF4(ClientID, pMsg->m_Vote);
-			}
-			break;
-		}
-		case NETMSGTYPE_CL_SETTEAM:
-		{
-			if (!m_World.m_Paused)
-		{
-			CNetMsg_Cl_SetTeam *pMsg = (CNetMsg_Cl_SetTeam *)pRawMsg;
-			if(pPlayer->GetTeam() == pMsg->m_Team || pPlayer->GetTeam() != TEAM_SPECTATORS)
-				return;
+				if(pEnd != 0)
+					*(const_cast<char *>(pEnd)) = 0;
 
-			if(!Server()->IsClientLogged(ClientID))
-			{
-				SendBroadcast_Localization(ClientID, BROADCAST_PRIORITY_GAMEANNOUNCE, BROADCAST_DURATION_GAMEANNOUNCE, _("你需要登录(/login)或者创建(/register)一个新账户"), NULL);
-				return;
-			}
-
-			GetStat(ClientID);
-			GetUpgrade(ClientID);
-
-			CPlayer *pPlayer = m_apPlayers[ClientID];
-			if(g_Config.m_SvCityStart == 1 && pPlayer->AccData.Level < 250)
-			{ 
-       			SendBroadcast_Localization(ClientID, BROADCAST_PRIORITY_GAMEANNOUNCE, BROADCAST_DURATION_GAMEANNOUNCE, _("你需要 250 级"), NULL);
-				return;
-			}
-			if(pPlayer->AccData.Level <= 0 || pPlayer->AccData.Class == -1)
-			{
-				SendBroadcast_Localization(ClientID, BROADCAST_PRIORITY_GAMEANNOUNCE, BROADCAST_DURATION_GAMEANNOUNCE, _("读取数据时发生错误,请报告管理员"), NULL);
-				return;
-			}
-
-			if(!Server()->GetItemCount(ClientID, CUSTOMSKIN))
-				pPlayer->SetClassSkin(m_apPlayers[ClientID]->GetClass());
-
-			Server()->InitClanID(Server()->GetClanID(ClientID), PLUS, "Init", 0, false);
-			Server()->ListInventory(ClientID, -1, true);	
-			pPlayer->SetTeam(1, false);
-			ResetVotes(ClientID, AUTH);
-			pPlayer->SetMoveChar();	
-		}
-		break;
-		}
-		case NETMSGTYPE_CL_SETSPECTATORMODE:
-		{
-			if (!m_World.m_Paused)
-		{
-			CNetMsg_Cl_SetSpectatorMode *pMsg = (CNetMsg_Cl_SetSpectatorMode *)pRawMsg;
-			if(pMsg->m_SpectatorID != SPEC_FREEVIEW)
-				if (!Server()->ReverseTranslate(pMsg->m_SpectatorID, ClientID))
+				// drop empty and auto created spam messages (more than 16 characters per second)
+				if(Length == 0 || (g_Config.m_SvSpamprotection && pPlayer->m_LastChat && pPlayer->m_LastChat+Server()->TickSpeed()*((15+Length)/16) > Server()->Tick()))
 					return;
 
-			if((g_Config.m_SvSpamprotection && pPlayer->m_LastSetSpectatorMode && pPlayer->m_LastSetSpectatorMode+Server()->TickSpeed()/4 > Server()->Tick()))
-				return;
+				pPlayer->m_LastChat = Server()->Tick();
+			
+			
+				if(str_comp_num(pMsg->m_pMessage, "/msg ", 5) == 0)
+				{
+					PrivateMessage(pMsg->m_pMessage+5, ClientID, (Team != CGameContext::CHAT_ALL));
+				}
+				else if(str_comp_num(pMsg->m_pMessage, "/w ", 3) == 0)
+				{
+					PrivateMessage(pMsg->m_pMessage+3, ClientID, (Team != CGameContext::CHAT_ALL));
+				}
+				else if(pMsg->m_pMessage[0]=='/')
+					pPlayer->m_pChatCmd->ChatCmd(pMsg);
+				else
+					SendChat(ClientID, Team, pMsg->m_pMessage);	
+				
+				break;
+			}
+			case NETMSGTYPE_CL_CALLVOTE:
+			{
+				CNetMsg_Cl_CallVote const *pMsg = (CNetMsg_Cl_CallVote *)pRawMsg;
+				const char *pReason = pMsg->m_Reason[0] ? pMsg->m_Reason : "No reason given";
 
-			pPlayer->m_LastSetSpectatorMode = Server()->Tick();
-			if(pMsg->m_SpectatorID != SPEC_FREEVIEW && (!m_apPlayers[pMsg->m_SpectatorID] || m_apPlayers[pMsg->m_SpectatorID]->GetTeam() == TEAM_SPECTATORS))
-				SendChatTarget(ClientID, "Invalid spectator id used");
-			else
-				pPlayer->m_SpectatorID = pMsg->m_SpectatorID;
-		}
-		break;
-		}
-		case NETMSGTYPE_CL_CHANGEINFO:
-		{
-			if(g_Config.m_SvSpamprotection && pPlayer->m_LastChangeInfo && pPlayer->m_LastChangeInfo+Server()->TickSpeed()*5 > Server()->Tick())
-				return;
+				if(str_comp_nocase(pMsg->m_Type, "kick") == 0)
+				{
+					int KickID = str_toint(pMsg->m_Value);
+					if(KickID < 0 || KickID >= MAX_NOBOT || !m_apPlayers[KickID])
+					{
+						SendChatTarget(ClientID, "Invalid client id to kick");
+						return;
+					}
+					else if(KickID == ClientID)
+					{
+						SendChatTarget(ClientID, "你不能把你自己踢出房间");
+						return;
+					}
+					else if(Server()->IsAuthed(KickID))
+					{
+						SendChatTarget(ClientID, "你不能把管理员踢出房间");
+						char aBufKick[128];
+						str_format(aBufKick, sizeof(aBufKick), "'%s' 投票把你踢出房间", Server()->ClientName(ClientID));
+						SendChatTarget(KickID, aBufKick);
+						return;
+					}
+				}
+				else
+				{
+					char aDesc[VOTE_DESC_LENGTH] = {0};
+					char aCmd[VOTE_CMD_LENGTH] = {0};
 
-			pPlayer->m_LastChangeInfo = Server()->Tick();
-			m_pController->OnPlayerInfoChange(pPlayer);
+					if(str_comp_nocase(pMsg->m_Type, "option") == 0)
+					{
+						for (int i = 0; i < m_PlayerVotes[ClientID].size(); ++i)
+						{
+							if(str_comp_nocase(pMsg->m_Value, m_PlayerVotes[ClientID][i].m_aDescription) == 0)
+							{
+								str_format(aDesc, sizeof(aDesc), "%s", m_PlayerVotes[ClientID][i].m_aDescription);
+								str_format(aCmd, sizeof(aCmd), "%s", m_PlayerVotes[ClientID][i].m_aCommand);
+							}
+						}
+					}
+					#include "VoteMsgParser.h"
+					VoteMsgParser[aCmd]();
+				}
+				break;
+			}
+			case NETMSGTYPE_CL_VOTE:
+			{
+				auto *pMsg = (CNetMsg_Cl_Vote *)pRawMsg;		
+				if(m_InviteTick[ClientID] > 0)
+				{
+					if(!pMsg->m_Vote)
+						return;
 
-			CNetMsg_Cl_ChangeInfo *pMsg = (CNetMsg_Cl_ChangeInfo *)pRawMsg;
-			Server()->SetClientCountry(ClientID, pMsg->m_Country);
-			if(Server()->GetItemCount(pPlayer->GetCID(), CUSTOMSKIN))
-				str_copy(pPlayer->m_TeeInfos.m_SkinName, pMsg->m_pSkin, sizeof(pPlayer->m_TeeInfos.m_SkinName));
-		break;
-		}
-		case NETMSGTYPE_CL_EMOTICON:
-		{
-		if (!m_World.m_Paused)
-		{
-			CNetMsg_Cl_Emoticon *pMsg = (CNetMsg_Cl_Emoticon *)pRawMsg;
-			SendEmoticon(ClientID, pMsg->m_Emoticon);
+					if(pMsg->m_Vote)
+					{
+						if(pMsg->m_Vote > 0)
+						{
+							if(m_apPlayers[ClientID])
+							{
+								EnterClan(ClientID, m_apPlayers[ClientID]->m_InviteClanID);
+								ResetVotes(ClientID, AUTH);
+								SendBroadcast_Localization(ClientID, BROADCAST_PRIORITY_INTERFACE, 150, _("欢迎来到公会"), NULL);
+							}
+						}
+						else
+						{
+							if(m_apPlayers[ClientID])
+								SendBroadcast_Localization(ClientID, BROADCAST_PRIORITY_INTERFACE, 10, _(" "), NULL);
+						}
+						m_InviteTick[ClientID] = 0;
 
-			if(pPlayer->GetCharacter() && pMsg->m_Emoticon >= 2)
-				pPlayer->GetCharacter()->ParseEmoticionButton(ClientID, pMsg->m_Emoticon);
-		}
-		break;
-		}
-		case NETMSGTYPE_CL_KILL:
-		{
-		if (!m_World.m_Paused)
-		{
-			if((pPlayer->m_LastKill && pPlayer->m_LastKill+Server()->TickSpeed()*3 > Server()->Tick()) || !Server()->GetItemCount(ClientID, SDROP) || pPlayer->m_Search || pPlayer->m_InArea)
-				return;
+						CNetMsg_Sv_VoteSet Msg;
+						Msg.m_Timeout = 0;
+						Msg.m_pDescription = "";
+						Msg.m_pReason = "";
+						Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, ClientID);
+					}
+				}
+				else if(m_apPlayers[ClientID]->GetCharacter())
+				{
+					m_apPlayers[ClientID]->GetCharacter()->PressF3orF4(ClientID, pMsg->m_Vote);
+				}
+				break;
+			}
+			case NETMSGTYPE_CL_SETTEAM:
+			{
+				if (!m_World.m_Paused)
+				{
+					CNetMsg_Cl_SetTeam *pMsg = (CNetMsg_Cl_SetTeam *)pRawMsg;
+					if(pPlayer->GetTeam() == pMsg->m_Team || pPlayer->GetTeam() != TEAM_SPECTATORS)
+						return;
 
-			pPlayer->m_LastKill = Server()->Tick();
-			pPlayer->KillCharacter(WEAPON_SELF);
-		}
-		break;
-		}
-		default:
-			dbg_msg("sys", "Error value %d in %s:%d", MsgID, __FILE__, __LINE__);
-			break;
+					if(!Server()->IsClientLogged(ClientID))
+					{
+						SendBroadcast_Localization(ClientID, BROADCAST_PRIORITY_GAMEANNOUNCE, BROADCAST_DURATION_GAMEANNOUNCE, _("你需要登录(/login)或者创建(/register)一个新账户"), NULL);
+						return;
+					}
+
+					GetStat(ClientID);
+					GetUpgrade(ClientID);
+
+					CPlayer *pPlayer = m_apPlayers[ClientID];
+					if(g_Config.m_SvCityStart == 1 && pPlayer->AccData.Level < 250)
+					{ 
+						SendBroadcast_Localization(ClientID, BROADCAST_PRIORITY_GAMEANNOUNCE, BROADCAST_DURATION_GAMEANNOUNCE, _("你需要 250 级"), NULL);
+						return;
+					}
+					if(pPlayer->AccData.Level <= 0 || pPlayer->AccData.Class == -1)
+					{
+						SendBroadcast_Localization(ClientID, BROADCAST_PRIORITY_GAMEANNOUNCE, BROADCAST_DURATION_GAMEANNOUNCE, _("读取数据时发生错误,请报告管理员"), NULL);
+						return;
+					}
+
+					if(!Server()->GetItemCount(ClientID, CUSTOMSKIN))
+						pPlayer->SetClassSkin(m_apPlayers[ClientID]->GetClass());
+
+					Server()->InitClanID(Server()->GetClanID(ClientID), PLUS, "Init", 0, false);
+					Server()->ListInventory(ClientID, -1, true);	
+					pPlayer->SetTeam(1, false);
+					ResetVotes(ClientID, AUTH);
+					pPlayer->SetMoveChar();	
+				}
+				break;
+			}
+			case NETMSGTYPE_CL_SETSPECTATORMODE:
+			{
+				if (!m_World.m_Paused)
+				{
+					auto *pMsg = (CNetMsg_Cl_SetSpectatorMode *)pRawMsg;
+					if(pMsg->m_SpectatorID != SPEC_FREEVIEW && !Server()->ReverseTranslate(pMsg->m_SpectatorID, ClientID))
+						return;
+
+					if((g_Config.m_SvSpamprotection && pPlayer->m_LastSetSpectatorMode && pPlayer->m_LastSetSpectatorMode+Server()->TickSpeed()/4 > Server()->Tick()))
+						return;
+
+					pPlayer->m_LastSetSpectatorMode = Server()->Tick();
+					if(pMsg->m_SpectatorID != SPEC_FREEVIEW && (!m_apPlayers[pMsg->m_SpectatorID] || m_apPlayers[pMsg->m_SpectatorID]->GetTeam() == TEAM_SPECTATORS))
+						SendChatTarget(ClientID, "Invalid spectator id used");
+					else
+						pPlayer->m_SpectatorID = pMsg->m_SpectatorID;
+				}
+				break;
+			}
+			case NETMSGTYPE_CL_CHANGEINFO:
+			{
+				if(g_Config.m_SvSpamprotection && pPlayer->m_LastChangeInfo && pPlayer->m_LastChangeInfo+Server()->TickSpeed()*5 > Server()->Tick())
+					return;
+
+				pPlayer->m_LastChangeInfo = Server()->Tick();
+				m_pController->OnPlayerInfoChange(pPlayer);
+
+				auto *pMsg = (CNetMsg_Cl_ChangeInfo *)pRawMsg;
+				Server()->SetClientCountry(ClientID, pMsg->m_Country);
+				if(Server()->GetItemCount(pPlayer->GetCID(), CUSTOMSKIN))
+					str_copy(pPlayer->m_TeeInfos.m_SkinName, pMsg->m_pSkin, sizeof(pPlayer->m_TeeInfos.m_SkinName));
+				break;
+			}
+			case NETMSGTYPE_CL_EMOTICON:
+			{
+				if (!m_World.m_Paused)
+				{
+					auto *pMsg = (CNetMsg_Cl_Emoticon *)pRawMsg;
+					SendEmoticon(ClientID, pMsg->m_Emoticon);
+
+					if(pPlayer->GetCharacter() && pMsg->m_Emoticon >= 2)
+						pPlayer->GetCharacter()->ParseEmoticionButton(ClientID, pMsg->m_Emoticon);
+				}
+				break;
+			}
+			case NETMSGTYPE_CL_KILL:
+			{
+                if (!m_World.m_Paused ||
+                    (pPlayer->m_LastKill && pPlayer->m_LastKill + Server()->TickSpeed() * 3 > Server()->Tick()) ||
+                    !Server()->GetItemCount(ClientID, SDROP) ||
+                    pPlayer->m_Search ||
+					pPlayer->m_InArea) 
+				{
+                    pPlayer->m_LastKill = Server()->Tick();
+                    pPlayer->KillCharacter(WEAPON_SELF);
+                }
+            	break;
+			}
+			default:
+				dbg_msg("sys", "Error value %d in %s:%d", MsgID, __FILE__, __LINE__);
+				break;
 	}
 	}
 	else
@@ -1454,7 +1443,7 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 			if(pPlayer->m_IsReady)
 				return;
 
-			CNetMsg_Cl_StartInfo *pMsg = (CNetMsg_Cl_StartInfo *)pRawMsg;
+			auto *pMsg = (CNetMsg_Cl_StartInfo *)pRawMsg;
 			pPlayer->m_LastChangeInfo = Server()->Tick();
 
 			// set start infos
@@ -1489,13 +1478,13 @@ void CGameContext::BuyItem(int ItemType, int ClientID, int Type)
 	if(Server()->GetItemCount(ClientID, ItemType) && ItemType != CLANTICKET && ItemType != BOOKEXPMIN && ItemType != GOLDTICKET && ItemType != MONEYBAG &&ItemType != EXTENDLIMIT)
 		return SendChatTarget_Localization(ClientID, CHATCATEGORY_DEFAULT, _("你已购买."), NULL);	
 	
-	if(m_apPlayers[ClientID]->AccData.Level < Server()->GetItemPrice(ClientID, ItemType, 0))
+	else if(m_apPlayers[ClientID]->AccData.Level < Server()->GetItemPrice(ClientID, ItemType, 0))
 		return SendChatTarget_Localization(ClientID, CHATCATEGORY_DEFAULT, _("你没有达到规定的等级."), NULL);	
 		
-	if(Type == 0 && m_apPlayers[ClientID]->AccData.Gold < (unsigned long)Server()->GetItemPrice(ClientID, ItemType, 1))
+	else if(Type == 0 && m_apPlayers[ClientID]->AccData.Gold < (unsigned long)Server()->GetItemPrice(ClientID, ItemType, 1))
 		return SendChatTarget_Localization(ClientID, CHATCATEGORY_DEFAULT, _("你没有足够的黄金,小穷光蛋."), NULL);	
 
-	if(Type == 1 && m_apPlayers[ClientID]->AccData.Donate < Server()->GetItemPrice(ClientID, ItemType, 1))
+	else if(Type == 1 && m_apPlayers[ClientID]->AccData.Donate < Server()->GetItemPrice(ClientID, ItemType, 1))
 		return SendChatTarget_Localization(ClientID, CHATCATEGORY_DEFAULT, _("你没有足够点券(donate money),充钱吧."), NULL);	
 
 	if(Type == 0)
