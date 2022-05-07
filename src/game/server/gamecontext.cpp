@@ -1479,33 +1479,38 @@ void CGameContext::BuyItem(int ItemType, int ClientID, int Type)
 		return SendChatTarget_Localization(ClientID, CHATCATEGORY_DEFAULT, _("你已购买."), NULL);	
 	
 	else if(m_apPlayers[ClientID]->AccData.Level < Server()->GetItemPrice(ClientID, ItemType, 0))
-		return SendChatTarget_Localization(ClientID, CHATCATEGORY_DEFAULT, _("你没有达到规定的等级."), NULL);	
-		
-	else if(Type == 0 && m_apPlayers[ClientID]->AccData.Gold < (unsigned long)Server()->GetItemPrice(ClientID, ItemType, 1))
-		return SendChatTarget_Localization(ClientID, CHATCATEGORY_DEFAULT, _("你没有足够的黄金,小穷光蛋."), NULL);	
-
-	else if(Type == 1 && m_apPlayers[ClientID]->AccData.Donate < Server()->GetItemPrice(ClientID, ItemType, 1))
-		return SendChatTarget_Localization(ClientID, CHATCATEGORY_DEFAULT, _("你没有足够点券(donate money),充钱吧."), NULL);	
-
-	if(Type == 0)
-	{
-		int NeedMaterial = Server()->GetItemPrice(ClientID, ItemType, 1);
-		if(Server()->GetMaterials(0) < NeedMaterial)
-			return SendChatTarget_Localization(ClientID, CHATCATEGORY_DEFAULT, _("店里可没材料."), NULL);	
-
-		Server()->SetMaterials(0, Server()->GetMaterials(0)-NeedMaterial);
+		return SendChatTarget_Localization(ClientID, CHATCATEGORY_DEFAULT, _("你没有达到规定的等级."), NULL);
+	
+	switch (Type) {
+		case 0:
+		{
+			int NeedMaterial = Server()->GetItemPrice(ClientID, ItemType, 1);
+			if(m_apPlayers[ClientID]->AccData.Gold < (unsigned)Server()->GetItemPrice(ClientID, ItemType, 1))
+				return SendChatTarget_Localization(ClientID, CHATCATEGORY_DEFAULT, _("你没有足够的黄金,小穷光蛋."), NULL);
+			else if(Server()->GetMaterials(0) < NeedMaterial)
+				return SendChatTarget_Localization(ClientID, CHATCATEGORY_DEFAULT, _("店里可没材料."), NULL);
+			Server()->SetMaterials(0, Server()->GetMaterials(0)-NeedMaterial);
+			m_apPlayers[ClientID]->AccData.Gold -= Server()->GetItemPrice(ClientID, ItemType, 1);
+			GiveItem(ClientID, ItemType, 1);
+			if(ItemType == IGUN) m_apPlayers[ClientID]->GetCharacter()->GiveWeapon(WEAPON_GUN, 5);
+			else if(ItemType == ISHOTGUN) m_apPlayers[ClientID]->GetCharacter()->GiveWeapon(WEAPON_SHOTGUN, 5);
+			else if(ItemType == IGRENADE) m_apPlayers[ClientID]->GetCharacter()->GiveWeapon(WEAPON_GRENADE, 5);
+			else if(ItemType == ILASER) m_apPlayers[ClientID]->GetCharacter()->GiveWeapon(WEAPON_RIFLE, 5);
+			break;
+		}
+		case 1:
+		{
+			if (m_apPlayers[ClientID]->AccData.Donate < Server()->GetItemPrice(ClientID, ItemType, 1))
+				return SendChatTarget_Localization(ClientID, CHATCATEGORY_DEFAULT, _("你没有足够点券(donate money),充钱吧."), NULL);
+			m_apPlayers[ClientID]->AccData.Donate -= Server()->GetItemPrice(ClientID, ItemType, 1);
+			GiveItem(ClientID, ItemType, 1);
+			break;
+		}
+		default:
+			dbg_msg("sys", "Error value %d in %s:%d", Type, __FILE__, __LINE__);
+			break;
 	}
-
-	if(Type == 0) m_apPlayers[ClientID]->AccData.Gold -= Server()->GetItemPrice(ClientID, ItemType, 1);
-	else if(Type == 1) m_apPlayers[ClientID]->AccData.Donate -= Server()->GetItemPrice(ClientID, ItemType, 1);
-	GiveItem(ClientID, ItemType, 1);
-	SendChatTarget_Localization(ClientID, CHATCATEGORY_DEFAULT, _("你成功地购买了商品"), NULL);							
-	
-	if(ItemType == IGUN) m_apPlayers[ClientID]->GetCharacter()->GiveWeapon(WEAPON_GUN, 5);
-	if(ItemType == ISHOTGUN) m_apPlayers[ClientID]->GetCharacter()->GiveWeapon(WEAPON_SHOTGUN, 5);
-	if(ItemType == IGRENADE) m_apPlayers[ClientID]->GetCharacter()->GiveWeapon(WEAPON_GRENADE, 5);
-	if(ItemType == ILASER) m_apPlayers[ClientID]->GetCharacter()->GiveWeapon(WEAPON_RIFLE, 5);
-	
+	SendChatTarget_Localization(ClientID, CHATCATEGORY_DEFAULT, _("你成功地购买了商品"), NULL);
 	dbg_msg("buy/shop", "%s 购买了 %s:%d", Server()->ClientName(ClientID), Server()->GetItemName(ClientID, ItemType, false), ItemType);
 	m_apPlayers[ClientID]->m_LoginSync = 10;
 	UpdateStats(ClientID);

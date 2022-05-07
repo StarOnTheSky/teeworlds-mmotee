@@ -15,10 +15,13 @@
 
 #include <teeuniverses/components/localization.h>
 
+#include "engine/shared/protocol.h"
 #include "eventhandler.h"
 #include "gamecontroller.h"
 #include "gameworld.h"
 #include "player.h"
+
+#include <array>
 
 #ifdef _MSC_VER
 typedef __int32 int32_t;
@@ -209,7 +212,6 @@ public:
 	void ExitClan(int ClientID);
 	void EnterClan(int ClientID, int ClanID);
 
-	// Предметы апгрейды
 	// 物品升级
 	void BuyItem(int ItemType, int ClientID, int Type = 0);
 	void GiveItem(int ClientID, int ItemID, int Count, int Enchant = 0);
@@ -225,7 +227,6 @@ public:
 
 	void CreateSellWorkItem(int ClientID, int ItemID, int Price);
 
-	// Арена
 	// 竞技场
 	void AreaTick();
 	void StartArea(int WaitTime, int Type, int ClientID);
@@ -359,7 +360,7 @@ private:
 		int m_TimedPriority;
 		char m_TimedMessage[1024];
 	};
-	CBroadcastState m_BroadcastStates[MAX_NOBOT];
+	std::array<CBroadcastState, MAX_NOBOT> m_BroadcastStates;
 };
 
 inline int64_t CmaskAll() { return -1LL; }
