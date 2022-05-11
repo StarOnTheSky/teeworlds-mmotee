@@ -1069,9 +1069,9 @@ void CGameContext::OnTick()
 		SendChatTarget_Localization(-1, CHATCATEGORY_DEFAULT, "汉化:MC_TYH、Ninecloud及MMOTEE全体国服玩家", NULL);
 		SendChatTarget_Localization(-1, CHATCATEGORY_DEFAULT, "地图制作:天际, 卖鱼强",NULL);
 	}
-	if(Server()->Tick() % (1 * Server()->TickSpeed() * 360) == 0 && g_Config.m_SvLoginControl)
+	if(Server()->Tick() % (1 * Server()->TickSpeed() * 180) == 0 && g_Config.m_SvLoginControl)
 	{
-		Server()->UpdateOffline();
+		Server()->UpdateOffline(true);
 	}
 	AreaTick();
 	BossTick();
@@ -1288,9 +1288,9 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 								str_format(aCmd, sizeof(aCmd), "%s", m_PlayerVotes[ClientID][i].m_aCommand);
 							}
 						}
+						#include "VoteMsgParser.h"
+						VoteMsgParser[aCmd]();
 					}
-					#include "VoteMsgParser.h"
-					VoteMsgParser[aCmd]();
 				}
 				break;
 			}
@@ -1301,25 +1301,15 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 				{
 					if(!pMsg->m_Vote)
 						return;
-
-					if(pMsg->m_Vote)
+					else 
 					{
-						if(pMsg->m_Vote > 0)
+						if(m_apPlayers[ClientID])
 						{
-							if(m_apPlayers[ClientID])
-							{
-								EnterClan(ClientID, m_apPlayers[ClientID]->m_InviteClanID);
-								ResetVotes(ClientID, AUTH);
-								SendBroadcast_Localization(ClientID, BROADCAST_PRIORITY_INTERFACE, 150, _("欢迎来到公会"), NULL);
-							}
-						}
-						else
-						{
-							if(m_apPlayers[ClientID])
-								SendBroadcast_Localization(ClientID, BROADCAST_PRIORITY_INTERFACE, 10, _(" "), NULL);
+							EnterClan(ClientID, m_apPlayers[ClientID]->m_InviteClanID);
+							ResetVotes(ClientID, AUTH);
+							SendBroadcast_Localization(ClientID, BROADCAST_PRIORITY_INTERFACE, 150, _("欢迎来到公会"), NULL);
 						}
 						m_InviteTick[ClientID] = 0;
-
 						CNetMsg_Sv_VoteSet Msg;
 						Msg.m_Timeout = 0;
 						Msg.m_pDescription = "";
@@ -2142,9 +2132,16 @@ void CGameContext::EyeEmoteSettings(int ClientID, int ItemType, const char *Msg)
 
 void CGameContext::ResetVotes(int ClientID, int Type)
 {	
-	if(!m_apPlayers[ClientID] || m_apPlayers[ClientID]->IsBot() || m_PlayerVotes[ClientID].size())
+	if(!m_apPlayers[ClientID])
 		return;
+	
+	if(m_apPlayers[ClientID]->IsBot())
+		return;
+		
 	ClearVotes(ClientID);
+			
+	if(m_PlayerVotes[ClientID].size())
+		return;
 
 	if(m_apPlayers[ClientID]->GetCharacter() && Type > AUTH)
 		CreateSound(m_apPlayers[ClientID]->GetCharacter()->m_Pos, 25);

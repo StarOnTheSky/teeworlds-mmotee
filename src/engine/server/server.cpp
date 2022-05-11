@@ -2072,6 +2072,9 @@ int main(int argc, const char **argv) // ignore_convention
 
 	// run the server
 	dbg_msg("server", "starting...");
+	if (g_Config.m_SvLoginControl) {
+		pServer->UpdateOffline(false);
+	}
 	pServer->Run();
 	
 	delete pServer->m_pLocalization;
@@ -2166,26 +2169,26 @@ void CServer::ResetBotInfo(int ClientID, int BotType, int BotSubType)
 	case BOT_NPCW:
 	{
 		const char *Name = "Nope";
-		if (BotSubType == 0)
+		switch(BotSubType)
 		{
-			if (!g_Config.m_SvCityStart)
-				Name = "NPC:John";
-			else if (g_Config.m_SvCityStart == 1)
-				Name = "NPC:Grem";
-		}
-		else if (BotSubType == 1)
-		{
-			if (!g_Config.m_SvCityStart)
-				Name = "NPC:Lusi";
-			else if (g_Config.m_SvCityStart == 1)
-				Name = "NPC:Afra";
-		}
-		else
-		{
-			if (!g_Config.m_SvCityStart)
-				Name = "NPC:Miki";
-			else if (g_Config.m_SvCityStart == 1)
-				Name = "NPC:Saki";
+			case 0:
+				if (!g_Config.m_SvCityStart)
+					Name = "NPC:John";
+				else if (g_Config.m_SvCityStart == 1)
+					Name = "NPC:Grem";
+				break;
+			case 1:
+				if (!g_Config.m_SvCityStart)
+					Name = "NPC:Lusi";
+				else if (g_Config.m_SvCityStart == 1)
+					Name = "NPC:Afra";
+				break;
+			default:
+				if (!g_Config.m_SvCityStart)
+					Name = "NPC:Miki";
+				else if (g_Config.m_SvCityStart == 1)
+					Name = "NPC:Saki";
+				break;
 		}
 		str_copy(m_aClients[ClientID].m_aName, Name, MAX_NAME_LENGTH);
 		break;
@@ -2758,7 +2761,6 @@ public:
 				m_pServer->SetRewardMail(m_ClientID, iscope, ItemID, ItemNum);
 
 				char Text[64];
-				//str_format(Text, sizeof(Text), "%s", pSqlServer->GetResults()->getString("TextMail").c_str());
 				switch (MailType)
 				{
 				case 1:
@@ -2928,7 +2930,7 @@ public:
 				pSqlServer->executeSqlQuery(aBuf);
 				if(pSqlServer->GetResults()->next())
 				{
-					Items[i].ItemCount = (int)pSqlServer->GetResults()->getInt("COUNT(*)");
+					Items[i].ItemCount = pSqlServer->GetResults()->getInt("COUNT(*)");
 				}
 			}
 			catch (sql::SQLException const &e)
@@ -2944,17 +2946,10 @@ public:
 			, m_IDOwner);	
 			pSqlServer->executeSql(aBuf);
 		m_pServer->InitMailID(m_ClientID);
-		/*if(Items[0].ItemCount > 0)
-		{
-			m_pServer->GameServer()->GiveItem(m_ClientID, Items[0].ItemID, Items[0].ItemCount);
-			//m_pServer->GameServer()->SendChatTarget_Localization(m_ClientID, CHATCATEGORY_DEFAULT, _("你获得了 {str:items}x{int:counts}"), "items", m_pServer->GetItemName(m_ClientID, Items[0].ItemID), "counts", &Items[0].ItemCount, NULL);
-		}*/
-		for(int i = 0;i < 8;i++)
-		{
-			if(Items[i].ItemCount > 0)
+		for (auto it : Items) {
+			if(it.ItemCount > 0)
 			{
-				m_pServer->GameServer()->GiveItem(m_ClientID, Items[i].ItemID, Items[i].ItemCount);
-				//m_pServer->GameServer()->SendChatTarget_Localization(m_ClientID, CHATCATEGORY_DEFAULT, _("你获得了 {str:items}x{int:counts}"), "items", m_pServer->GetItemName(m_ClientID, Items[i].ItemID), "counts", &Items[i].ItemCount, NULL);
+				m_pServer->GameServer()->GiveItem(m_ClientID, it.ItemID, it.ItemCount);
 			}
 		}
 		return true;
@@ -2972,52 +2967,6 @@ void CServer::RemMail_OnlineBonus(int ClientID)
 	pJob->Start();
 }
 
-/*
-class CSqlJob_Server_GetMailCount : public CSqlJob
-{
-private:
-	CServer* m_pServer;
-	int m_ClientID;
-	int m_MailCount;
-	
-public:
-	CSqlJob_Server_GetMailCount(CServer* pServer, int ClientID)
-	{
-		m_pServer = pServer;
-		m_ClientID = ClientID; 
-		m_MailCount = 0;
-	}
-
-	virtual bool Job(CSqlServer* pSqlServer)
-	{
-		char aBuf[256];			
-		try
-		{
-			str_format(aBuf, sizeof(aBuf), 
-				"SELECT count(*) FROM %s_Mail " 
-				"WHERE IDOwner = '%d' ;"
-				, pSqlServer->GetPrefix()
-				, m_ClientID);	
-			pSqlServer->executeSqlQuery(aBuf);
-			if(pSqlServer->GetResults()->next())
-			{
-				m_MailCount = (int)pSqlServer->GetResults()->getInt("count(*)");
-			}
-		}
-		catch (sql::SQLException const &e)
-		{
-			return -1;
-		}
-		return m_MailCount;
-	}
-};
-int CServer::GetMailCount(int ClientID)
-{
-	CSqlJob* pJob = new CSqlJob_Server_GetMailCount(this, ClientID);
-	pJob->Start();
-	return ;
-}
-*/
 // Выдача предмета
 // 发邮件
 class CSqlJob_Server_SendMail : public CSqlJob
@@ -5415,17 +5364,12 @@ public:
 		m_pServer = pServer;
 		m_ClientID = ClientID;
 		m_sNick = CSqlString<64>(pNick);
-		//m_UserStatusID = m_pServer->m_aClients[m_ClientID].m_UserStatusID;
 	}
 
 	virtual bool Job(CSqlServer* pSqlServer)
 	{
 		char aBuf[512];
-		//char aAddrStr[64];
-		//net_addr_str(m_pServer->m_NetServer.ClientAddr(m_ClientID), aAddrStr, sizeof(aAddrStr), false);
-		//dbg_msg("ID","%d",m_UserID);
-		//if(m_UserStatusID >= 0)
-		//{
+
 			try
 			{
 				str_format(aBuf, sizeof(aBuf), 
@@ -5433,7 +5377,6 @@ public:
 					, pSqlServer->GetPrefix()
 					, m_sNick.ClrStr());
 				pSqlServer->executeSqlQuery(aBuf);
-				//dbg_msg("test","1 %s",aBuf);
 				if(pSqlServer->GetResults()->next())
 				{
 					m_UserStatusID = (int)pSqlServer->GetResults()->getInt("ID");
@@ -5442,7 +5385,6 @@ public:
 						, pSqlServer->GetPrefix()
 						, m_UserStatusID);
 					pSqlServer->executeSql(aBuf);
-					//dbg_msg("test","2 %s", aBuf);
 				}
 				else
 				{
@@ -5466,7 +5408,6 @@ public:
 				m_pServer->AddGameServerCmd(pCmd);
 				return false;
 			}
-		//}
 		return true;
 	}
 	
@@ -5544,9 +5485,9 @@ class CSqlJob_Server_UpdateOffline : public CSqlJob
 {
 private:
 	CServer* m_pServer;
-	
+	bool Wait;
 public:
-	CSqlJob_Server_UpdateOffline(CServer* pServer)
+	CSqlJob_Server_UpdateOffline(CServer* pServer, bool Wait)
 	{
 		m_pServer = pServer;
 	}
@@ -5555,33 +5496,53 @@ public:
 	{
 		char aBuf[512];
 		char Nick[64];
-		try
-		{
-			str_format(aBuf, sizeof(aBuf), "SELECT * FROM %s_UserStatus WHERE online = '1' and timestampdiff(second, lastupdate, now()) > 360;", pSqlServer->GetPrefix());
-			pSqlServer->executeSqlQuery(aBuf);
-				//dbg_msg("test","1 %s",aBuf);
-			while(pSqlServer->GetResults()->next())
+		if(Wait) {
+			try
 			{
-				str_copy(Nick, pSqlServer->GetResults()->getString("Nick").c_str(), sizeof(Nick));
-				//dbg_msg("test","2 %s", aBuf);
-				dbg_msg("user","玩家 %s 超时了,被设置为下线", Nick);
+				str_format(aBuf, sizeof(aBuf), "SELECT * FROM %s_UserStatus WHERE online = '1' and timestampdiff(second, lastupdate, now()) > 360;", pSqlServer->GetPrefix());
+				pSqlServer->executeSqlQuery(aBuf);
+				while(pSqlServer->GetResults()->next())
+				{
+					str_copy(Nick, pSqlServer->GetResults()->getString("Nick").c_str(), sizeof(Nick));
+					dbg_msg("user","玩家 %s 超时了,被设置为下线", Nick);
+				}
+				str_format(aBuf, sizeof(aBuf), "UPDATE %s_UserStatus SET online = '0' WHERE online = '1' and timestampdiff(second, lastupdate, now()) > 360;", pSqlServer->GetPrefix());
+				pSqlServer->executeSqlQuery(aBuf);
+				return true;
 			}
-			str_format(aBuf, sizeof(aBuf), "UPDATE %s_UserStatus SET online = '0' WHERE online = '1' and timestampdiff(second, lastupdate, now()) > 360;", pSqlServer->GetPrefix());
-			pSqlServer->executeSqlQuery(aBuf);
-			return true;
-		}
-		catch (sql::SQLException const &e)
-		{
-			if(str_length(e.what()) > 0)
-				dbg_msg("sql", "在更新玩家状态时发生了错误 (MySQL 错误: %s)", e.what());
-			return false;
+			catch (sql::SQLException const &e)
+			{
+				if(str_length(e.what()) > 0)
+					dbg_msg("sql", "在更新玩家状态时发生了错误 (MySQL 错误: %s)", e.what());
+				return false;
+			}
+		} else {
+			try
+			{
+				str_format(aBuf, sizeof(aBuf), "SELECT * FROM %s_UserStatus WHERE online = '1' and serverid = '%d';", pSqlServer->GetPrefix(), g_Config.m_ServerID);
+				pSqlServer->executeSqlQuery(aBuf);
+				while(pSqlServer->GetResults()->next())
+				{
+					str_copy(Nick, pSqlServer->GetResults()->getString("Nick").c_str(), sizeof(Nick));
+					dbg_msg("user","玩家 %s 超时了,被设置为下线", Nick);
+				}
+				str_format(aBuf, sizeof(aBuf), "UPDATE %s_UserStatus SET online = '0' WHERE online = '1' and serverid = '%d';", pSqlServer->GetPrefix(), g_Config.m_ServerID);
+				pSqlServer->executeSqlQuery(aBuf);
+				return true;
+			}
+			catch (sql::SQLException const &e)
+			{
+				if(str_length(e.what()) > 0)
+					dbg_msg("sql", "在更新玩家状态时发生了错误 (MySQL 错误: %s)", e.what());
+				return false;
+			}
 		}
 	}
 	
 };
 
-inline void CServer::UpdateOffline()
+inline void CServer::UpdateOffline(bool Wait)
 {
-	CSqlJob* pJob = new CSqlJob_Server_UpdateOffline(this);
+	CSqlJob* pJob = new CSqlJob_Server_UpdateOffline(this, Wait);
 	pJob->Start();
 }

@@ -33,13 +33,13 @@ bool CSqlConnector::ConnectSqlServer(bool ReadOnly)
 	}
 	dbg_msg("sql", "FATAL ERROR: No Sql%sServers available", ReadOnly ? "Read" : "Write");
 	//TODO
-	/*
+	
 	if(g_Config.m_ExitOnSQLError)
 	{
 		// Exit on SQL Error
 		exit(1);
 	}
-	*/
+	
 	m_pSqlServer = 0;
 	return false;
 }
